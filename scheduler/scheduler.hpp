@@ -6,7 +6,7 @@
 
 struct Scheduler {
     bool dependencies_done(size_t task) {
-        for (int j : workflow.dependency_graph[task]) {
+        for (auto [j, w] : workflow.dependency_graph[task]) {
             if (!completed[j]) {
                 return false;
             }

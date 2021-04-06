@@ -36,6 +36,9 @@ struct GreedyScheduler: public Scheduler {
         if (event.event_type == Event::EVENT_TASK_FINISHED) {
             completed[event.task_id] = true;
             resources[event.resource_id].used_slots--;
+        } else if (event.event_type == Event::EVENT_TASK_FAILED) {
+            resources[event.resource_id].used_slots--;
+            scheduled[event.task_id] = false;
         }
         return assign_available();
     }
