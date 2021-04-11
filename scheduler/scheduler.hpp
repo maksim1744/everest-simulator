@@ -2,6 +2,7 @@
 #define SIMULATOR_SCHEDULER_HPP_
 
 #include "../action.hpp"
+#include "../settings.hpp"
 #include "../workflow.hpp"
 
 struct Scheduler {
@@ -14,9 +15,11 @@ struct Scheduler {
         return true;
     }
 
-    virtual std::vector<Action> init();
+    virtual std::vector<Action> init(const Settings &) { return {}; }
 
-    virtual std::vector<Action> notify(const Event &event);
+    virtual std::vector<Action> notify(const Event &) { return {}; }
+
+    virtual ~Scheduler() {}
 
     Workflow workflow;
     std::vector<bool> completed;

@@ -6,18 +6,27 @@
 #include <numeric>
 #include <queue>
 #include <random>
+#include <set>
 #include <vector>
+#include <memory>
 
-#include "resource.hpp"
-#include "task.hpp"
 #include "event.hpp"
+#include "resource.hpp"
 #include "scheduler/scheduler.hpp"
+#include "settings.hpp"
+#include "task.hpp"
 #include "workflow.hpp"
 
 struct Simulator {
     void add_resource(Resource resource) {
         resource.id = resources.size();
         resources.push_back(std::move(resource));
+    }
+
+    void inject_resource_failure(int resource, double start_time, double duration) {
+        if (resource_failures.size() < resources.size())
+            resource_failures.resize(resources.size());
+        resource_failures[resource].emplace_back(start_time, start_time + duration);
     }
 
     void make_action(const Action &action) {
@@ -32,6 +41,11 @@ struct Simulator {
 
         if (completed[action.task_id]) {
             std::cerr << "wrong action: task " << action.task_id << " already completed" << std::endl;
+            exit(1);
+        }
+
+        if (!resources[action.resource_id].is_up) {
+            std::cerr << "wrong action: resource " << action.resource_id << " is down" << std::endl;
             exit(1);
         }
 
@@ -52,13 +66,18 @@ struct Simulator {
         e.resource_id = action.resource_id;
         e.time = current_time;
         for (auto [pred, data] : workflow.dependency_graph[e.task_id]) {
-            // maybe don't count time, if pred and current task are on the same resource?
-            e.time = std::max(e.time, completion_time[pred] + data);
+            if (settings.optimize_transfers) {
+                if (e.resource_id == task_location[pred]) {
+                    continue;
+                }
+            }
+            e.time = std::max(e.time, current_time + data);
         }
         e.event_type = Event::EVENT_TASK_STARTED;
 
         events.push(e);
 
+        // fail task
         if (with_prob(fail_prob)) {
             // fail at random time from 0 to 1.1 * estimated task time
             e.time += workflow.tasks[action.task_id].weight / resources[action.resource_id].speed * ud(rnd);
@@ -88,7 +107,25 @@ struct Simulator {
         scheduler->resources = resources;
         completed.assign(workflow.tasks.size(), false);
         completion_time.resize(workflow.tasks.size());
-        make_scheduler_actions(scheduler->init());
+        task_location.resize(workflow.tasks.size());
+        std::vector<std::set<int>> resource_tasks(resources.size());
+        resource_failures.resize(resources.size());
+
+        make_scheduler_actions(scheduler->init(settings));
+
+        for (size_t i = 0; i < resources.size(); ++i) {
+            for (auto [start, end] : resource_failures[i]) {
+                Event e;
+                e.time = start;
+                e.event_type = Event::EVENT_RESOURCE_DOWN;
+                e.resource_id = i;
+                events.push(e);
+
+                e.event_type = Event::EVENT_RESOURCE_UP;
+                e.time = end;
+                events.push(e);
+            }
+        }
 
         if (logging) {
             // print edges for drawing purposes
@@ -108,23 +145,54 @@ struct Simulator {
             events.pop();
             current_time = e.time;
 
+            if (failed_ids.count(e.id)) {
+                continue;
+            }
+
             if (e.event_type == Event::EVENT_TASK_STARTED) {
                 if (logging) {
                     std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " started on " << e.resource_id << std::endl;
                 }
+                resource_tasks[e.resource_id].insert(e.id);
             } else if (e.event_type == Event::EVENT_TASK_FINISHED) {
                 if (logging) {
                     std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " finished on " << e.resource_id << std::endl;
                 }
+                resource_tasks[e.resource_id].erase(e.id);
                 resources[e.resource_id].used_slots--;
                 completed[e.task_id] = true;
                 completion_time[e.task_id] = e.time;
+                task_location[e.task_id] = e.resource_id;
                 make_scheduler_actions(scheduler->notify(e));
             } else if (e.event_type == Event::EVENT_TASK_FAILED) {
                 if (logging) {
                     std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " failed on " << e.resource_id << std::endl;
                 }
+                resource_tasks[e.resource_id].erase(e.id);
                 resources[e.resource_id].used_slots--;
+                make_scheduler_actions(scheduler->notify(e));
+            } else if (e.event_type == Event::EVENT_RESOURCE_DOWN) {
+                if (!resources[e.resource_id].is_up) {
+                    std::cerr << "resource " << e.resource_id << " is already down" << std::endl;
+                    exit(1);
+                }
+                if (logging) {
+                    std::cout << "time " << std::setw(6) << current_time << ": resource " << e.resource_id << " down" << std::endl;
+                }
+                resources[e.resource_id].is_up = false;
+                for (int id : resource_tasks[e.resource_id])
+                    failed_ids.insert(id);
+                make_scheduler_actions(scheduler->notify(e));
+            } else if (e.event_type == Event::EVENT_RESOURCE_UP) {
+                if (resources[e.resource_id].is_up) {
+                    std::cerr << "resource " << e.resource_id << " is already up" << std::endl;
+                    exit(1);
+                }
+                if (logging) {
+                    std::cout << "time " << std::setw(6) << current_time << ": resource " << e.resource_id << " up" << std::endl;
+                }
+                resources[e.resource_id].is_up = true;
+                resources[e.resource_id].used_slots = 0;
                 make_scheduler_actions(scheduler->notify(e));
             }
         }
@@ -143,18 +211,24 @@ struct Simulator {
 
     std::vector<Resource> resources;
     Workflow workflow;
-    Scheduler *scheduler;
+    std::shared_ptr<Scheduler> scheduler;
     bool logging = true;
 
     std::priority_queue<Event, std::vector<Event>, std::greater<Event>> events;
     std::vector<bool> completed;
     std::vector<double> completion_time;
+    std::vector<int> task_location;
     double current_time = 0;
 
     std::mt19937 rnd{123};
     std::normal_distribution<> nd{1, 0.1};
     std::uniform_real_distribution<> ud{0.0, 1.1};
     double fail_prob = 0.5;
+
+    std::set<int> failed_ids;
+    std::vector<std::vector<std::pair<double, double>>> resource_failures;
+
+    Settings settings{.optimize_transfers = true};
 };
 
 #endif

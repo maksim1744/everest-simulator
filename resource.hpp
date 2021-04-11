@@ -7,6 +7,7 @@ struct Resource {
     int slots;
     int used_slots = 0;
     double speed;  // more -- faster
+    bool is_up = true;
     int id;
 };
 

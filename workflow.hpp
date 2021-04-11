@@ -4,6 +4,8 @@
 #include <iostream>
 #include <functional>
 
+#include "task.hpp"
+
 struct Workflow {
     void add_task(Task task) {
         task.id = tasks.size();
