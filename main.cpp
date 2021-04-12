@@ -31,9 +31,9 @@ void heft_test() {
 
     simulator.settings.optimize_transfers = true;
 
-    simulator.add_resource(Resource(1, 1));
-    simulator.add_resource(Resource(1, 2));
-    simulator.add_resource(Resource(1, 1.5));
+    simulator.add_resource(Resource(1, 1, 1.5));
+    simulator.add_resource(Resource(1, 2, 1.5));
+    simulator.add_resource(Resource(1, 1.5, 1.5));
 
     simulator.inject_resource_failure(0, 35, 20);
     simulator.inject_resource_failure(1, 5, 4);

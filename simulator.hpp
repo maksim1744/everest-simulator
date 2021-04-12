@@ -64,7 +64,7 @@ struct Simulator {
         Event e;
         e.task_id = action.task_id;
         e.resource_id = action.resource_id;
-        e.time = current_time;
+        e.time = current_time + resources[e.resource_id].delay * ud(rnd);
         for (auto [pred, data] : workflow.dependency_graph[e.task_id]) {
             if (settings.optimize_transfers) {
                 if (e.resource_id == task_location[pred]) {
