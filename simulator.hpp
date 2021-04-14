@@ -64,6 +64,12 @@ struct Simulator {
         Event e;
         e.task_id = action.task_id;
         e.resource_id = action.resource_id;
+        e.slot = resources[e.resource_id].get_slot();
+        e.time = current_time;
+        e.event_type = Event::EVENT_TASK_ARRIVED;
+
+        events.push(e);
+
         e.time = current_time + resources[e.resource_id].delay * ud(rnd);
         for (auto [pred, data] : workflow.dependency_graph[e.task_id]) {
             if (settings.optimize_transfers) {
@@ -128,7 +134,10 @@ struct Simulator {
         }
 
         if (logging) {
-            // print edges for drawing purposes
+            // print some info for a drawing
+            for (int i = 0; i < resources.size(); ++i)
+                std::cout << resources[i].slots << ' ';
+            std::cout << std::endl;
             for (int i = 0; i < (int)workflow.tasks.size(); ++i) {
                 for (auto [j, w] : workflow.dependency_graph[i]) {
                     std::cout << j << "-" << i << " ";
@@ -149,27 +158,34 @@ struct Simulator {
                 continue;
             }
 
-            if (e.event_type == Event::EVENT_TASK_STARTED) {
+
+            if (e.event_type == Event::EVENT_TASK_ARRIVED) {
                 if (logging) {
-                    std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " started on " << e.resource_id << std::endl;
+                    std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " arrived on " << e.resource_id << " slot " << e.slot << std::endl;
                 }
                 resource_tasks[e.resource_id].insert(e.id);
+            } else if (e.event_type == Event::EVENT_TASK_STARTED) {
+                if (logging) {
+                    std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " started on " << e.resource_id << " slot " << e.slot << std::endl;
+                }
             } else if (e.event_type == Event::EVENT_TASK_FINISHED) {
                 if (logging) {
-                    std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " finished on " << e.resource_id << std::endl;
+                    std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " finished on " << e.resource_id << " slot " << e.slot << std::endl;
                 }
                 resource_tasks[e.resource_id].erase(e.id);
                 resources[e.resource_id].used_slots--;
                 completed[e.task_id] = true;
                 completion_time[e.task_id] = e.time;
                 task_location[e.task_id] = e.resource_id;
+                resources[e.resource_id].return_slot(e.slot);
                 make_scheduler_actions(scheduler->notify(e));
             } else if (e.event_type == Event::EVENT_TASK_FAILED) {
                 if (logging) {
-                    std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " failed on " << e.resource_id << std::endl;
+                    std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " failed on " << e.resource_id << " slot " << e.slot << std::endl;
                 }
                 resource_tasks[e.resource_id].erase(e.id);
                 resources[e.resource_id].used_slots--;
+                resources[e.resource_id].return_slot(e.slot);
                 make_scheduler_actions(scheduler->notify(e));
             } else if (e.event_type == Event::EVENT_RESOURCE_DOWN) {
                 if (!resources[e.resource_id].is_up) {
@@ -193,6 +209,7 @@ struct Simulator {
                 }
                 resources[e.resource_id].is_up = true;
                 resources[e.resource_id].used_slots = 0;
+                resources[e.resource_id].fill_slots();
                 make_scheduler_actions(scheduler->notify(e));
             }
         }
@@ -228,7 +245,7 @@ struct Simulator {
     std::set<int> failed_ids;
     std::vector<std::vector<std::pair<double, double>>> resource_failures;
 
-    Settings settings{.optimize_transfers = true};
+    Settings settings{.optimize_transfers = true, .net_speed = 1.};
 };
 
 #endif

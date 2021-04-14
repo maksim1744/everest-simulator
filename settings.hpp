@@ -3,6 +3,7 @@
 
 struct Settings {
     bool optimize_transfers;
+    double net_speed;
 };
 
 #endif

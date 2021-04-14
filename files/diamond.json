@@ -1,0 +1,52 @@
+{
+    "scheduler": "greedy",
+    "settings": {
+        "net_speed": 1.0,
+        "optimize_transfers": true,
+        "task_fail_prob": 0.0
+    },
+    "workflow": {
+        "tasks": [2, 4, 5, 3],
+        "edges": [
+            {
+                "from": 0,
+                "to": 1,
+                "weight": 1
+            },
+            {
+                "from": 0,
+                "to": 2,
+                "weight": 1
+            },
+            {
+                "from": 1,
+                "to": 3,
+                "weight": 1
+            },
+            {
+                "from": 2,
+                "to": 3,
+                "weight": 1
+            }
+        ]
+    },
+    "resources": [
+        {
+            "slots": 1,
+            "speed": 1.0,
+            "delay": 0.0
+        },
+        {
+            "slots": 1,
+            "speed": 2.0,
+            "delay": 0.0
+        }
+    ],
+    "resource_failures": [
+        {
+            "resource": 1,
+            "start": 3.5,
+            "duration": 500.0
+        }
+    ]
+}

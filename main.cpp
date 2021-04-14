@@ -1,7 +1,10 @@
-#include "simulator.hpp"
-#include "workflow.hpp"
+#include <cassert>
+
+#include "json_loader.hpp"
 #include "scheduler/greedy_scheduler.hpp"
 #include "scheduler/heft_scheduler.hpp"
+#include "simulator.hpp"
+#include "workflow.hpp"
 
 using namespace std;
 
@@ -15,7 +18,7 @@ void simple_test() {
     simulator.add_resource(Resource(1, 1));
     simulator.add_resource(Resource(1, 2));
 
-    // simulator.inject_resource_failure(1, 3, 5);
+    simulator.inject_resource_failure(1, 3, 5);
 
     simulator.fail_prob = 0.0;
 
@@ -33,19 +36,22 @@ void heft_test() {
 
     simulator.add_resource(Resource(1, 1, 1.5));
     simulator.add_resource(Resource(1, 2, 1.5));
-    simulator.add_resource(Resource(1, 1.5, 1.5));
+    simulator.add_resource(Resource(2, 1.5, 1.5));
 
     simulator.inject_resource_failure(0, 35, 20);
     simulator.inject_resource_failure(1, 5, 4);
 
-    simulator.fail_prob = 0.2;
+    simulator.fail_prob = 0.3;
 
     simulator.run();
 }
 
 int main() {
-    heft_test();
+    // heft_test();
     // simple_test();
+
+    Simulator simulator = json_loader::load("files/diamond.json");
+    simulator.run();
 
     return 0;
 }

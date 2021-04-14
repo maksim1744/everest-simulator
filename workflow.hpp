@@ -66,7 +66,7 @@ struct Workflow {
             }
             for (size_t i = 0; i < tasks.size(); ++i) {
                 for (auto [j, w] : dependency_graph[i]) {
-                    if (pos[i] < pos[j]) {
+                    if (pos[i] <= pos[j]) {
                         std::cerr << "there is a cycle in dependency_graph" << std::endl;
                         exit(1);
                     }
