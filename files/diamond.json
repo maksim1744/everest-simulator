@@ -1,5 +1,5 @@
 {
-    "scheduler": "greedy",
+    "scheduler": "heft",
     "settings": {
         "net_speed": 1.0,
         "optimize_transfers": true,
@@ -46,7 +46,7 @@
         {
             "resource": 1,
             "start": 3.5,
-            "duration": 500.0
+            "duration": 5.0
         }
     ]
 }

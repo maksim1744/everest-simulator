@@ -1,3 +1,4 @@
 *.exe
 draw.cpp
+parse.py
 *.txt

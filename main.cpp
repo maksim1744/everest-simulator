@@ -18,7 +18,7 @@ void simple_test() {
     simulator.add_resource(Resource(1, 1));
     simulator.add_resource(Resource(1, 2));
 
-    simulator.inject_resource_failure(1, 3, 5);
+    simulator.inject_resource_failure(1, 3.5, 5);
 
     simulator.fail_prob = 0.0;
 
@@ -46,12 +46,16 @@ void heft_test() {
     simulator.run();
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     // heft_test();
     // simple_test();
 
-    Simulator simulator = json_loader::load("files/diamond.json");
-    simulator.run();
+    if (argc > 1) {
+        Simulator simulator = json_loader::load(argv[1]);
+        simulator.run();
+    } else {
+        simple_test();
+    }
 
     return 0;
 }

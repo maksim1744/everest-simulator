@@ -77,7 +77,7 @@ struct Simulator {
                     continue;
                 }
             }
-            e.time = std::max(e.time, current_time + data);
+            e.time = std::max(e.time, current_time + data / settings.net_speed);
         }
         e.event_type = Event::EVENT_TASK_STARTED;
 
@@ -149,6 +149,8 @@ struct Simulator {
         std::cout << std::fixed;
         std::cout.precision(2);
 
+        double finish_time = 0;
+
         while (!events.empty()) {
             Event e = events.top();
             events.pop();
@@ -163,15 +165,18 @@ struct Simulator {
                 if (logging) {
                     std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " arrived on " << e.resource_id << " slot " << e.slot << std::endl;
                 }
+                finish_time = current_time;
                 resource_tasks[e.resource_id].insert(e.id);
             } else if (e.event_type == Event::EVENT_TASK_STARTED) {
                 if (logging) {
                     std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " started on " << e.resource_id << " slot " << e.slot << std::endl;
                 }
+                finish_time = current_time;
             } else if (e.event_type == Event::EVENT_TASK_FINISHED) {
                 if (logging) {
                     std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " finished on " << e.resource_id << " slot " << e.slot << std::endl;
                 }
+                finish_time = current_time;
                 resource_tasks[e.resource_id].erase(e.id);
                 resources[e.resource_id].used_slots--;
                 completed[e.task_id] = true;
@@ -183,6 +188,7 @@ struct Simulator {
                 if (logging) {
                     std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " failed on " << e.resource_id << " slot " << e.slot << std::endl;
                 }
+                finish_time = current_time;
                 resource_tasks[e.resource_id].erase(e.id);
                 resources[e.resource_id].used_slots--;
                 resources[e.resource_id].return_slot(e.slot);

@@ -28,7 +28,7 @@ struct HeftScheduler: public Scheduler {
                     double eft = 0;
                     for (auto [j, w] : workflow.dependency_graph[task]) {
                         if (res.id == task_location[j]) continue;
-                        eft = std::max(eft, (double)w);
+                        eft = std::max(eft, (double)w / settings.net_speed);
                     }
                     eft += workflow.tasks[task].weight / res.speed;
                     if (best_resource == -1 || eft < best_eft) {
@@ -64,7 +64,7 @@ struct HeftScheduler: public Scheduler {
             for (auto [succ, w] : inv_graph[task]) {
                 if (rank[succ] == -1)
                     dfs(succ);
-                rank[task] = std::max(rank[task], w + rank[succ]);
+                rank[task] = std::max(rank[task], w / settings.net_speed + rank[succ]);
             }
             double avg_time = 0;
             for (auto res : resources) {
