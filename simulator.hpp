@@ -232,7 +232,7 @@ struct Simulator {
         if (logging) {
             std::cerr << "done!" << std::endl;
         }
-        std::cerr << "time spent: " << current_time << std::endl;
+        std::cerr << "time spent: " << finish_time << std::endl;
         std::cerr << "tasks completed: " << std::accumulate(completed.begin(), completed.end(), 0) << " / " << workflow.tasks.size() << std::endl;
     }
 

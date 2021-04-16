@@ -1,5 +1,5 @@
 {
-    "net_speed": 100.0,
+    "net_speed": 1.0,
     "optimize_transfers": true,
     "task_fail_prob": 0.0
 }

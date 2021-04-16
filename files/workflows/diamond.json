@@ -1,0 +1,25 @@
+{
+    "tasks": [2, 4, 5, 3],
+    "edges": [
+        {
+            "from": 0,
+            "to": 1,
+            "weight": 1
+        },
+        {
+            "from": 0,
+            "to": 2,
+            "weight": 1
+        },
+        {
+            "from": 1,
+            "to": 3,
+            "weight": 1
+        },
+        {
+            "from": 2,
+            "to": 3,
+            "weight": 1
+        }
+    ]
+}
