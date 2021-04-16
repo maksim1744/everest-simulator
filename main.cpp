@@ -50,12 +50,13 @@ int main(int argc, char *argv[]) {
     // heft_test();
     // simple_test();
 
-    if (argc > 1) {
-        Simulator simulator = json_loader::load(argv[1]);
-        simulator.run();
-    } else {
-        simple_test();
+    if (argc < 5) {
+        cerr << "Usage: main.exe scheduler_name workflow.json resources.json settings.json [failures.json]" << endl;
+        exit(1);
     }
+
+    Simulator simulator = json_loader::load(argv[1], argv[2], argv[3], argv[4], argc > 5 ? argv[5] : "");
+    simulator.run();
 
     return 0;
 }

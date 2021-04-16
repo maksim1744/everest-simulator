@@ -70,7 +70,7 @@ struct Simulator {
 
         events.push(e);
 
-        e.time = current_time + resources[e.resource_id].delay * ud(rnd);
+        e.time = current_time;
         for (auto [pred, data] : workflow.dependency_graph[e.task_id]) {
             if (settings.optimize_transfers) {
                 if (e.resource_id == task_location[pred]) {
@@ -79,6 +79,10 @@ struct Simulator {
             }
             e.time = std::max(e.time, current_time + data / settings.net_speed);
         }
+        e.event_type = Event::EVENT_TASK_LOADED;
+        events.push(e);
+
+        e.time += resources[e.resource_id].delay * ud(rnd);
         e.event_type = Event::EVENT_TASK_STARTED;
 
         events.push(e);
@@ -167,6 +171,11 @@ struct Simulator {
                 }
                 finish_time = current_time;
                 resource_tasks[e.resource_id].insert(e.id);
+            } else if (e.event_type == Event::EVENT_TASK_LOADED) {
+                if (logging) {
+                    std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " loaded on " << e.resource_id << " slot " << e.slot << std::endl;
+                }
+                finish_time = current_time;
             } else if (e.event_type == Event::EVENT_TASK_STARTED) {
                 if (logging) {
                     std::cout << "time " << std::setw(6) << current_time << ": task " << e.task_id << " started on " << e.resource_id << " slot " << e.slot << std::endl;

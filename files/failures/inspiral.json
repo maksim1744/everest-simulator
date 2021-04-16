@@ -1,0 +1,12 @@
+[
+    {
+        "resource": 4,
+        "start": 35,
+        "duration": 80
+    },
+    {
+        "resource": 3,
+        "start": 180,
+        "duration": 30
+    }
+]

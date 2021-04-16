@@ -16,11 +16,11 @@ namespace json_loader {
 
 using json = nlohmann::json;
 
-Simulator load(const std::string &filename) {
-    std::ifstream i(filename);
-    json data;
-    i >> data;
-
+Simulator load(const std::string &scheduler,
+               const std::string &workflow_file,
+               const std::string &resources_file,
+               const std::string &settings_file,
+               const std::string &failures_file) {
     Simulator simulator;
 
     auto error = [](const std::string &msg) {
@@ -28,96 +28,102 @@ Simulator load(const std::string &filename) {
         exit(1);
     };
 
-    if (!data.contains("scheduler")) {
-        error("need to specify scheduler");
-    }
-    if (!data.contains("settings")) {
-        error("need to specify settings");
-    }
-    if (!data.contains("workflow")) {
-        error("need to specify workflow");
-    }
-    if (!data.contains("resources")) {
-        error("need to specify resources");
-    }
-
-    if (data["scheduler"].get<std::string>() == "greedy") {
+    if (scheduler == "greedy") {
         simulator.scheduler = std::shared_ptr<Scheduler>(new GreedyScheduler{});
-    } else if (data["scheduler"].get<std::string>() == "heft") {
+    } else if (scheduler == "heft") {
         simulator.scheduler = std::shared_ptr<Scheduler>(new HeftScheduler{});
     } else {
         error("wrong scheduler");
     }
 
-    auto settings = data["settings"];
-    if (!settings.contains("net_speed")) {
-        error("need to specify settings/net_speed");
-    }
-    if (!settings.contains("optimize_transfers")) {
-        error("need to specify settings/optimize_transfers");
-    }
-    if (!settings.contains("task_fail_prob")) {
-        error("need to specify settings/task_fail_prob");
-    }
+    // settings
+    {
+        std::ifstream i(settings_file);
+        json settings;
+        i >> settings;
 
-    simulator.settings.net_speed = settings["net_speed"].get<double>();
-    simulator.settings.optimize_transfers = settings["optimize_transfers"].get<bool>();
-    simulator.fail_prob = settings["task_fail_prob"].get<double>();
-
-    auto workflow_data = data["workflow"];
-    if (!workflow_data.contains("tasks")) {
-        error("need to specify workflow/tasks");
-    }
-    if (!workflow_data.contains("edges")) {
-        error("need to specify workflow/edges");
-    }
-
-    Workflow workflow;
-
-    auto tasks = workflow_data["tasks"].get<std::vector<double>>();
-    for (auto task : tasks)
-        workflow.add_task(task);
-
-    auto edges = workflow_data["edges"];
-    for (auto edge : edges) {
-        if (!edge.contains("from")) {
-            error("need to specify workflow/edges[i]/from");
+        if (!settings.contains("net_speed")) {
+            error("need to specify settings/net_speed");
         }
-        if (!edge.contains("to")) {
-            error("need to specify workflow/edges[i]/to");
+        if (!settings.contains("optimize_transfers")) {
+            error("need to specify settings/optimize_transfers");
         }
-        if (!edge.contains("weight")) {
-            error("need to specify workflow/edges[i]/weight");
+        if (!settings.contains("task_fail_prob")) {
+            error("need to specify settings/task_fail_prob");
         }
-        workflow.add_dependency(
-            edge["from"].get<int>(),
-            edge["to"].get<int>(),
-            edge["weight"].get<double>()
-        );
+        simulator.settings.net_speed = settings["net_speed"].get<double>();
+        simulator.settings.optimize_transfers = settings["optimize_transfers"].get<bool>();
+        simulator.fail_prob = settings["task_fail_prob"].get<double>();
     }
 
-    simulator.workflow = workflow;
+    {
+        std::ifstream i(workflow_file);
+        json workflow_data;
+        i >> workflow_data;
 
-    auto resources = data["resources"];
-    for (auto resource : resources) {
-        if (!resource.contains("slots")) {
-            error("need to specify resources[i]/slots");
+        if (!workflow_data.contains("tasks")) {
+            error("need to specify workflow/tasks");
         }
-        if (!resource.contains("speed")) {
-            error("need to specify resources[i]/speed");
+        if (!workflow_data.contains("edges")) {
+            error("need to specify workflow/edges");
         }
-        if (!resource.contains("delay")) {
-            error("need to specify resources[i]/delay");
+
+        Workflow workflow;
+
+        auto tasks = workflow_data["tasks"].get<std::vector<double>>();
+        for (auto task : tasks)
+            workflow.add_task(task);
+
+        auto edges = workflow_data["edges"];
+        for (auto edge : edges) {
+            if (!edge.contains("from")) {
+                error("need to specify workflow/edges[i]/from");
+            }
+            if (!edge.contains("to")) {
+                error("need to specify workflow/edges[i]/to");
+            }
+            if (!edge.contains("weight")) {
+                error("need to specify workflow/edges[i]/weight");
+            }
+            workflow.add_dependency(
+                edge["from"].get<int>(),
+                edge["to"].get<int>(),
+                edge["weight"].get<double>()
+            );
         }
-        simulator.add_resource(Resource(
-            resource["slots"].get<int>(),
-            resource["speed"].get<double>(),
-            resource["delay"].get<double>()
-        ));
+
+        simulator.workflow = workflow;
     }
 
-    if (data.contains("resource_failures")) {
-        for (auto failure : data["resource_failures"]) {
+    {
+        std::ifstream i(resources_file);
+        json resources;
+        i >> resources;
+
+        for (auto resource : resources) {
+            if (!resource.contains("slots")) {
+                error("need to specify resources[i]/slots");
+            }
+            if (!resource.contains("speed")) {
+                error("need to specify resources[i]/speed");
+            }
+            if (!resource.contains("delay")) {
+                error("need to specify resources[i]/delay");
+            }
+            simulator.add_resource(Resource(
+                resource["slots"].get<int>(),
+                resource["speed"].get<double>(),
+                resource["delay"].get<double>()
+            ));
+        }
+    }
+
+    if (failures_file != "") {
+        std::ifstream i(failures_file);
+        json failures;
+        i >> failures;
+
+        for (auto failure : failures) {
             if (!failure.contains("resource")) {
                 error("need to specify resource_failures[i]/resource");
             }

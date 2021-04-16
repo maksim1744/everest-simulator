@@ -1,0 +1,37 @@
+[
+    {
+        "slots": 2,
+        "speed": 4.2,
+        "delay": 6
+    },
+    {
+        "slots": 3,
+        "speed": 4.2,
+        "delay": 6
+    },
+    {
+        "slots": 2,
+        "speed": 4.2,
+        "delay": 6
+    },
+    {
+        "slots": 5,
+        "speed": 8,
+        "delay": 6
+    },
+    {
+        "slots": 4,
+        "speed": 6,
+        "delay": 6
+    },
+    {
+        "slots": 4,
+        "speed": 6,
+        "delay": 6
+    },
+    {
+        "slots": 3,
+        "speed": 6,
+        "delay": 6
+    }
+]

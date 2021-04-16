@@ -2,3 +2,4 @@
 draw.cpp
 parse.py
 *.txt
+/scripts
