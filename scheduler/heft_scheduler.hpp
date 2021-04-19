@@ -12,14 +12,16 @@ struct HeftScheduler: public Scheduler {
     std::vector<Action> assign_available() {
         std::vector<Action> plan;
         for (int res = 0; res < resources.size(); ++res) {
+            if (!resources[res].is_up) continue;
             for (int slot = 0; slot < resources[res].slots; ++slot) {
                 if (resources[res].available_slots.count(slot) && !resource_schedules[res][slot].empty()) {
-                    auto [start, task] = resource_schedules[res][slot].front();
+                    auto [start, task] = *resource_schedules[res][slot].begin();
                     if (dependencies_done(task)) {
-                        resource_schedules[res][slot].pop_front();
+                        resource_schedules[res][slot].erase(resource_schedules[res][slot].begin());
                         resources[res].used_slots++;
                         resources[res].available_slots.erase(slot);
                         plan.push_back(Action(task, res));
+                        tasks_on_res[res].insert(task);
                     }
                 }
             }
@@ -29,12 +31,13 @@ struct HeftScheduler: public Scheduler {
 
     std::vector<Action> init(const Settings &settings) override {
         this->settings = settings;
-        // task_location.resize(workflow.tasks.size());
         completed.assign(workflow.tasks.size(), false);
-        // tasks_on_res.resize(resources.size());
+        tasks_on_res.resize(resources.size());
         task_slot.resize(workflow.tasks.size());
-        task_res.assign(workflow.tasks.size(), -1);
+        task_res.resize(workflow.tasks.size());
+        task_est.resize(workflow.tasks.size());
         resource_schedules.resize(resources.size());
+
         std::vector<std::vector<std::pair<int, int>>> inv_graph(workflow.tasks.size());
         for (int i = 0; i < workflow.tasks.size(); ++i) {
             for (auto [j, w] : workflow.dependency_graph[i]) {
@@ -79,8 +82,6 @@ struct HeftScheduler: public Scheduler {
         double estimated_finish = 0;
         while (!pq.empty()) {
             auto [rank, task] = pq.top();
-            completed[task] = true;
-            assert(dependencies_done(task));
             pq.pop();
             double ready_time = 0;
             for (auto [succ, w] : workflow.dependency_graph[task]) {
@@ -89,7 +90,7 @@ struct HeftScheduler: public Scheduler {
             double task_time = std::max(1e-3, workflow.tasks[task].weight);
             int best_res = -1;
             int best_slot = -1;
-            double best_transfer_time;
+            double best_transfer_time = -1;
             double best_est = -1;
             for (int res = 0; res < resource_allocations.size(); ++res) {
                 double transfer_time = 0;
@@ -99,7 +100,7 @@ struct HeftScheduler: public Scheduler {
                     transfer_time = std::max(transfer_time, w / settings.net_speed);
                 }
                 for (int slot = 0; slot < resource_allocations[res].size(); ++slot) {
-                    double res_task_time = transfer_time + task_time / resources[res].speed;
+                    double res_task_time = transfer_time + task_time / resources[res].speed + resources[res].delay * 0.55;
                     auto it = resource_allocations[res][slot].lower_bound({ready_time, -1.});
                     assert(it != resource_allocations[res][slot].begin());  // we have fake task
                     it = prev(it);
@@ -116,18 +117,15 @@ struct HeftScheduler: public Scheduler {
             }
             assert(best_res != -1);
             double start_time = best_est;
-            double finish_time = start_time + best_transfer_time + task_time / resources[best_res].speed;
+            double finish_time = start_time + best_transfer_time + task_time / resources[best_res].speed + resources[best_res].delay * 0.55;
             estimated_finish = std::max(estimated_finish, finish_time);
             resource_allocations[best_res][best_slot].emplace(start_time, finish_time);
             eft[task] = finish_time;
-            resource_schedules[best_res][best_slot].emplace_back(start_time, task);
+            resource_schedules[best_res][best_slot].emplace(start_time, task);
             task_slot[task] = best_slot;
             task_res[task] = best_res;
+            task_est[task] = start_time;
         }
-        for (int i = 0; i < resources.size(); ++i)
-            for (int j = 0; j < resource_schedules[i].size(); ++j)
-                std::sort(resource_schedules[i][j].begin(), resource_schedules[i][j].end());
-        completed.assign(completed.size(), false);
 
         return assign_available();
     }
@@ -138,23 +136,22 @@ struct HeftScheduler: public Scheduler {
             completed[event.task_id] = true;
             resources[event.resource_id].used_slots--;
             resources[event.resource_id].return_slot(task_slot[event.task_id]);
-            // tasks_on_res[event.resource_id].erase(event.task_id);
-            // task_location[event.task_id] = event.resource_id;
+            tasks_on_res[event.resource_id].erase(event.task_id);
         } else if (event.event_type == Event::EVENT_TASK_FAILED) {
             resources[event.resource_id].used_slots--;
-            assert(false);
-            // TODO: reschedule task
-            // tasks_on_res[event.resource_id].erase(event.task_id);
+            int task = event.task_id;
+            resource_schedules[task_res[task]][task_slot[task]].emplace(task_est[task], task);
+            resources[event.resource_id].return_slot(task_slot[task]);
+            tasks_on_res[event.resource_id].erase(event.task_id);
         } else if (event.event_type == Event::EVENT_RESOURCE_DOWN) {
             resources[event.resource_id].is_up = false;
-            // TODO: reschedule task
-            assert(false);
-            // tasks_on_res[event.resource_id].clear();
+            for (int task : tasks_on_res[event.resource_id])
+                resource_schedules[task_res[task]][task_slot[task]].emplace(task_est[task], task);
+            tasks_on_res[event.resource_id].clear();
         } else if (event.event_type == Event::EVENT_RESOURCE_UP) {
             resources[event.resource_id].is_up = true;
-            // TODO: reschedule task
-            assert(false);
             resources[event.resource_id].used_slots = 0;
+            resources[event.resource_id].fill_slots();
         }
         return assign_available();
     }
@@ -162,9 +159,11 @@ struct HeftScheduler: public Scheduler {
     ~HeftScheduler() {}
 
     Settings settings;
-    std::vector<std::vector<std::deque<std::pair<double, int>>>> resource_schedules;
+    std::vector<std::vector<std::set<std::pair<double, int>>>> resource_schedules;
     std::vector<int> task_slot;
     std::vector<int> task_res;
+    std::vector<double> task_est;
+    std::vector<std::set<int>> tasks_on_res;
     double current_time = 0;
 };
 
