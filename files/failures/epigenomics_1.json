@@ -5,8 +5,8 @@
         "duration": 30
     },
     {
-        "resource": 3,
-        "start": 180,
+        "resource": 5,
+        "start": 75,
         "duration": 80
     }
 ]

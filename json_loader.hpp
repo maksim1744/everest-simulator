@@ -6,6 +6,7 @@
 #include "scheduler/scheduler.hpp"
 #include "scheduler/greedy_scheduler.hpp"
 #include "scheduler/heft_scheduler.hpp"
+#include "scheduler/adaptive_scheduler.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -32,6 +33,8 @@ Simulator load(const std::string &scheduler,
         simulator.scheduler = std::shared_ptr<Scheduler>(new GreedyScheduler{});
     } else if (scheduler == "heft") {
         simulator.scheduler = std::shared_ptr<Scheduler>(new HeftScheduler{});
+    } else if (scheduler == "adaptive") {
+        simulator.scheduler = std::shared_ptr<Scheduler>(new AdaptiveScheduler{});
     } else {
         error("wrong scheduler");
     }
@@ -51,9 +54,13 @@ Simulator load(const std::string &scheduler,
         if (!settings.contains("task_fail_prob")) {
             error("need to specify settings/task_fail_prob");
         }
+        if (!settings.contains("logging")) {
+            error("need to specify settings/logging");
+        }
         simulator.settings.net_speed = settings["net_speed"].get<double>();
         simulator.settings.optimize_transfers = settings["optimize_transfers"].get<bool>();
         simulator.fail_prob = settings["task_fail_prob"].get<double>();
+        simulator.logging = settings["logging"].get<bool>();
     }
 
     {

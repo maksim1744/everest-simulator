@@ -1,0 +1,22 @@
+[
+    {
+        "resource": 5,
+        "start": 100,
+        "duration": 30
+    },
+    {
+        "resource": 4,
+        "start": 65,
+        "duration": 50
+    },
+    {
+        "resource": 2,
+        "start": 80,
+        "duration": 40
+    },
+    {
+        "resource": 0,
+        "start": 110,
+        "duration": 40
+    }
+]
