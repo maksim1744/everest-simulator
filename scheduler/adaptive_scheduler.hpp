@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include <map>
 
 struct AdaptiveScheduler: public Scheduler {
     double get_task_res_time(int task, int resource) const {
@@ -43,26 +44,110 @@ struct AdaptiveScheduler: public Scheduler {
         return plan;
     }
 
-    void init_heft() {
-        tasks_on_res.resize(resources.size());
-        task_slot.resize(workflow.tasks.size());
-        task_res.resize(workflow.tasks.size());
-        task_est.resize(workflow.tasks.size());
-        task_eft.resize(workflow.tasks.size());
-        scheduled.assign(workflow.tasks.size(), false);
-
-        rank.assign(workflow.tasks.size(), -1);
-
-        slot_free_time.resize(resources.size());
-        for (size_t i = 0; i < slot_free_time.size(); ++i)
-            slot_free_time[i].assign(resources[i].slots, 0);
-
-        std::vector<std::vector<std::pair<int, int>>> inv_graph(workflow.tasks.size());
+    void find_equivalency_classes() {
+        std::vector<std::vector<int>> g(workflow.tasks.size());
         for (int i = 0; i < workflow.tasks.size(); ++i) {
             for (auto [j, w] : workflow.dependency_graph[i]) {
-                inv_graph[j].emplace_back(i, w);
+                g[j].emplace_back(i);
             }
         }
+        std::vector<int> order;
+
+        std::vector<bool> u(workflow.tasks.size(), false);
+        std::function<void(int)> dfs = [&](int task) {
+            u[task] = true;
+            for (auto succ : g[task]) {
+                if (!u[succ])
+                    dfs(succ);
+            }
+            order.push_back(task);
+        };
+        for (int i = 0; i < workflow.tasks.size(); ++i)
+            if (!u[i])
+                dfs(i);
+
+        std::reverse(order.begin(), order.end());
+
+        std::vector<int> forward_class(workflow.tasks.size());
+        std::map<std::vector<int>, int> class_by_pred;
+        for (int task : order) {
+            std::vector<int> cur;
+            for (auto [j, w] : workflow.dependency_graph[task])
+                cur.push_back(forward_class[j]);
+            sort(cur.begin(), cur.end());
+            if (class_by_pred.count(cur)) {
+                forward_class[task] = class_by_pred[cur];
+            } else {
+                forward_class[task] = class_by_pred.size();
+                class_by_pred[cur] = forward_class[task];
+            }
+        }
+
+        std::reverse(order.begin(), order.end());
+        std::vector<int> backward_class(workflow.tasks.size());
+        std::map<std::vector<std::pair<int, int>>, int> class_by_succ;
+        for (int task : order) {
+            std::vector<std::pair<int, int>> cur;
+            for (auto j : g[task])
+                cur.emplace_back(backward_class[j], forward_class[j]);
+            sort(cur.begin(), cur.end());
+            if (class_by_succ.count(cur)) {
+                backward_class[task] = class_by_succ[cur];
+            } else {
+                backward_class[task] = class_by_succ.size();
+                class_by_succ[cur] = backward_class[task];
+            }
+        }
+
+        std::map<std::pair<int, int>, std::vector<int>> by_class;
+        for (int i = 0; i < workflow.tasks.size(); ++i)
+            by_class[{forward_class[i], backward_class[i]}].push_back(i);
+
+        task_class.resize(workflow.tasks.size());
+        int last_class = 0;
+        for (auto [a, v] : by_class) {
+            for (int k : v) {
+                task_class[k] = last_class;
+            }
+            ++last_class;
+        }
+
+        avg_time_s.assign(last_class, 0);
+        avg_time_c.assign(last_class, 0);
+
+        // for (auto [a, b] : by_class) {
+        //     std::cerr << "(" << a.first << ", " << a.second << "): ";
+        //     for (int k : b)
+        //         std::cerr << k << ' ';
+        //     std::cerr << std::endl;
+        // }
+    }
+
+    void remove_profile() {
+        for (int i = 0; i < workflow.tasks.size(); ++i) {
+            for (auto &[j, w] : workflow.dependency_graph[i])
+                w = 0;
+            workflow.tasks[i].weight = 1;
+        }
+        for (int i = 0; i < resources.size(); ++i) {
+            resources[i].speed = 1;
+            resources[i].delay = 0;
+        }
+
+        find_equivalency_classes();
+    }
+
+    void assign_heuristic_weights() {
+        for (int i = 0; i < workflow.tasks.size(); ++i) {
+            if (avg_time_c[task_class[i]] == 0)
+                workflow.tasks[i].weight = total_avg_time_s / total_avg_time_c * 1.;
+            else
+                workflow.tasks[i].weight = avg_time_s[task_class[i]] / avg_time_c[task_class[i]] * 1.;
+        }
+    }
+
+    void init_ranks() {
+        rank.assign(workflow.tasks.size(), -1);
 
         double avg_resource_time = 0;
         {
@@ -70,6 +155,13 @@ struct AdaptiveScheduler: public Scheduler {
             for (auto res : resources) {
                 cnt += res.slots;
                 avg_resource_time += res.slots * 1. / res.speed;
+            }
+        }
+
+        std::vector<std::vector<std::pair<int, int>>> inv_graph(workflow.tasks.size());
+        for (int i = 0; i < workflow.tasks.size(); ++i) {
+            for (auto [j, w] : workflow.dependency_graph[i]) {
+                inv_graph[j].emplace_back(i, w);
             }
         }
 
@@ -85,6 +177,24 @@ struct AdaptiveScheduler: public Scheduler {
         for (int i = 0; i < workflow.tasks.size(); ++i)
             if (rank[i] == -1)
                 dfs(i);
+    }
+
+    void init_heft() {
+        tasks_on_res.resize(resources.size());
+        task_slot.resize(workflow.tasks.size());
+        task_res.resize(workflow.tasks.size());
+        task_est.resize(workflow.tasks.size());
+        task_eft.resize(workflow.tasks.size());
+        scheduled.assign(workflow.tasks.size(), false);
+
+        if (!profile)
+            remove_profile();
+
+        slot_free_time.resize(resources.size());
+        for (size_t i = 0; i < slot_free_time.size(); ++i)
+            slot_free_time[i].assign(resources[i].slots, 0);
+
+        init_ranks();
     }
 
     void run_heft() {
@@ -168,6 +278,19 @@ struct AdaptiveScheduler: public Scheduler {
             task_eft[event.task_id] = current_time;
             int task = event.task_id;
             slot_free_time[task_res[task]][task_slot[task]] = current_time;
+
+            if (!profile) {
+                total_avg_time_s += task_eft[event.task_id] - task_est[event.task_id];
+                total_avg_time_c += 1;
+                avg_time_s[task_class[event.task_id]] += task_eft[event.task_id] - task_est[event.task_id];
+                avg_time_c[task_class[event.task_id]] += 1;
+                assign_heuristic_weights();
+                init_ranks();
+                if (std::accumulate(completed.begin(), completed.end(), 0) == completed.size()) {
+                    for (int i = 0; i < workflow.tasks.size(); ++i)
+                        std::cerr << i << ": " << avg_time_s[task_class[i]] / avg_time_c[task_class[i]] << ' ' << task_eft[i] - task_est[i] << std::endl;
+                }
+            }
         } else if (event.event_type == Event::EVENT_TASK_FAILED) {
             resources[event.resource_id].used_slots--;
             int task = event.task_id;
@@ -206,6 +329,13 @@ struct AdaptiveScheduler: public Scheduler {
     std::vector<std::set<int>> tasks_on_res;
     std::vector<bool> scheduled;
     double current_time = 0;
+
+    bool profile = true;
+    std::vector<double> avg_time_s;
+    std::vector<double> avg_time_c;
+    double total_avg_time_s = 0;
+    double total_avg_time_c = 0;
+    std::vector<int> task_class;
 };
 
 #endif

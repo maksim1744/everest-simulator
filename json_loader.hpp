@@ -61,6 +61,8 @@ Simulator load(const std::string &scheduler,
         simulator.settings.optimize_transfers = settings["optimize_transfers"].get<bool>();
         simulator.fail_prob = settings["task_fail_prob"].get<double>();
         simulator.logging = settings["logging"].get<bool>();
+        if (settings.contains("profile") && scheduler == "adaptive")
+            ((AdaptiveScheduler*)&*simulator.scheduler)->profile = settings["profile"].get<bool>();
     }
 
     {
