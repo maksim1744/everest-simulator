@@ -1,12 +1,14 @@
-[
-    {
-        "resource": 5,
-        "start": 100,
-        "duration": 30
-    },
-    {
-        "resource": 4,
-        "start": 65,
-        "duration": 50
-    }
-]
+{
+    "failures": [
+        {
+            "resource": 5,
+            "start": 100,
+            "duration": 30
+        },
+        {
+            "resource": 4,
+            "start": 65,
+            "duration": 50
+        }
+    ]
+}

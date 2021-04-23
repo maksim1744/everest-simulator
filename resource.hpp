@@ -29,6 +29,7 @@ struct Resource {
     bool is_up = true;
     int id;
     double delay = 0;
+    double straggler_factor = 1;
     std::set<int> available_slots;
 };
 

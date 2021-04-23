@@ -132,21 +132,35 @@ Simulator load(const std::string &scheduler,
         json failures;
         i >> failures;
 
-        for (auto failure : failures) {
-            if (!failure.contains("resource")) {
-                error("need to specify resource_failures[i]/resource");
+        if (failures.contains("failures")) {
+            for (auto failure : failures["failures"]) {
+                if (!failure.contains("resource")) {
+                    error("need to specify resource_failures[i]/resource");
+                }
+                if (!failure.contains("start")) {
+                    error("need to specify resource_failures[i]/start");
+                }
+                if (!failure.contains("duration")) {
+                    error("need to specify resource_failures[i]/duration");
+                }
+                simulator.inject_resource_failure(
+                    failure["resource"].get<int>(),
+                    failure["start"].get<double>(),
+                    failure["duration"].get<double>()
+                );
             }
-            if (!failure.contains("start")) {
-                error("need to specify resource_failures[i]/start");
+        }
+
+        if (failures.contains("stragglers")) {
+            for (auto straggler : failures["stragglers"]) {
+                if (!straggler.contains("resource")) {
+                    error("need to specify failures/stragglers/resource");
+                }
+                if (!straggler.contains("factor")) {
+                    error("need to specify failures/stragglers/factor");
+                }
+                simulator.resources[straggler["resource"].get<int>()].straggler_factor = straggler["factor"].get<double>();
             }
-            if (!failure.contains("duration")) {
-                error("need to specify resource_failures[i]/duration");
-            }
-            simulator.inject_resource_failure(
-                failure["resource"].get<int>(),
-                failure["start"].get<double>(),
-                failure["duration"].get<double>()
-            );
         }
     }
 

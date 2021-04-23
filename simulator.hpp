@@ -90,13 +90,13 @@ struct Simulator {
         // fail task
         if (with_prob(fail_prob)) {
             // fail at random time from 0 to 1.1 * estimated task time
-            e.time += workflow.tasks[action.task_id].weight / resources[action.resource_id].speed * ud(rnd);
+            e.time += workflow.tasks[action.task_id].weight / resources[action.resource_id].speed * resources[action.resource_id].straggler_factor * ud(rnd);
             e.event_type = Event::EVENT_TASK_FAILED;
 
             events.push(e);
         } else {
             // normal distibution with mean = estimated time and standard deviation = 10%
-            e.time += workflow.tasks[action.task_id].weight / resources[action.resource_id].speed * nd(rnd);
+            e.time += workflow.tasks[action.task_id].weight / resources[action.resource_id].speed * resources[action.resource_id].straggler_factor * nd(rnd);
             e.event_type = Event::EVENT_TASK_FINISHED;
 
             events.push(e);

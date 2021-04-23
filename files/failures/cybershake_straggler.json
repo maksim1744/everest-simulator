@@ -9,16 +9,16 @@
             "resource": 4,
             "start": 65,
             "duration": 50
-        },
+        }
+    ],
+    "stragglers": [
         {
             "resource": 2,
-            "start": 80,
-            "duration": 40
+            "factor": 1.5
         },
         {
             "resource": 0,
-            "start": 110,
-            "duration": 40
+            "factor": 1.3
         }
     ]
 }

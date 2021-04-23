@@ -1,7 +1,9 @@
-[
-    {
-        "resource": 1,
-        "start": 3.5,
-        "duration": 5.0
-    }
-]
+{
+    "failures": [
+        {
+            "resource": 1,
+            "start": 3.5,
+            "duration": 5.0
+        }
+    ]
+}
