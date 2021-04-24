@@ -162,6 +162,29 @@ Simulator load(const std::string &scheduler,
                 simulator.resources[straggler["resource"].get<int>()].straggler_factor = straggler["factor"].get<double>();
             }
         }
+
+        if (failures.contains("queues")) {
+            for (auto failure : failures["queues"]) {
+                if (!failure.contains("resource")) {
+                    error("need to specify failures/queues[i]/resource");
+                }
+                if (!failure.contains("start")) {
+                    error("need to specify failures/queues[i]/start");
+                }
+                if (!failure.contains("duration")) {
+                    error("need to specify failures/queues[i]/duration");
+                }
+                if (!failure.contains("factor")) {
+                    error("need to specify failures/queues[i]/factor");
+                }
+                simulator.add_resource_queue(
+                    failure["resource"].get<int>(),
+                    failure["start"].get<double>(),
+                    failure["duration"].get<double>(),
+                    failure["factor"].get<double>()
+                );
+            }
+        }
     }
 
     return simulator;

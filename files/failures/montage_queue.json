@@ -1,0 +1,28 @@
+{
+    "failures": [
+        {
+            "resource": 5,
+            "start": 22,
+            "duration": 30
+        },
+        {
+            "resource": 3,
+            "start": 35,
+            "duration": 50
+        }
+    ],
+    "queues": [
+        {
+            "resource": 3,
+            "start": 100,
+            "duration": 100,
+            "factor": 5
+        },
+        {
+            "resource": 0,
+            "start": 80,
+            "duration": 100,
+            "factor": 4
+        }
+    ]
+}

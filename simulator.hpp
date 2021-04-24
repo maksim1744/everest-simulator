@@ -29,6 +29,12 @@ struct Simulator {
         resource_failures[resource].emplace_back(start_time, start_time + duration);
     }
 
+    void add_resource_queue(int resource, double start_time, double duration, double factor) {
+        if (resource_queues.size() < resources.size())
+            resource_queues.resize(resources.size());
+        resource_queues[resource].emplace_back(start_time, start_time + duration, factor);
+    }
+
     void make_action(const Action &action) {
         if (action.resource_id < 0 || action.resource_id >= (int)resources.size()) {
             std::cerr << "wrong action resource_id" << std::endl;
@@ -120,6 +126,7 @@ struct Simulator {
         task_location.resize(workflow.tasks.size());
         std::vector<std::set<int>> resource_tasks(resources.size());
         resource_failures.resize(resources.size());
+        resource_queues.resize(resources.size());
 
         make_scheduler_actions(scheduler->init(settings));
 
@@ -132,6 +139,19 @@ struct Simulator {
                 events.push(e);
 
                 e.event_type = Event::EVENT_RESOURCE_UP;
+                e.time = end;
+                events.push(e);
+            }
+
+            for (auto [start, end, factor] : resource_queues[i]) {
+                Event e;
+                e.time = start;
+                e.event_type = Event::EVENT_RESOURCE_DELAY;
+                e.resource_id = i;
+                e.factor = factor;
+                events.push(e);
+
+                e.factor = 1 / factor;
                 e.time = end;
                 events.push(e);
             }
@@ -226,6 +246,8 @@ struct Simulator {
                 resources[e.resource_id].used_slots = 0;
                 resources[e.resource_id].fill_slots();
                 make_scheduler_actions(scheduler->notify(e));
+            } else if (e.event_type == Event::EVENT_RESOURCE_DELAY) {
+                resources[e.resource_id].delay *= e.factor;
             }
         }
 
@@ -259,6 +281,7 @@ struct Simulator {
 
     std::set<int> failed_ids;
     std::vector<std::vector<std::pair<double, double>>> resource_failures;
+    std::vector<std::vector<std::tuple<double, double, double>>> resource_queues;
 
     Settings settings{.optimize_transfers = true, .net_speed = 1.};
 };
